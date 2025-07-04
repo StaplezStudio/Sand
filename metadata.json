@@ -1,0 +1,6 @@
+{
+  "name": "Rev2 Solana Advanced NFT Dashboard (S.A.N.D)",
+  "description": "A sophisticated, single-page dashboard to mint and manage compressed NFTs (cNFTs) on the Solana blockchain. Features include wallet connection, RPC configuration, Merkle tree creation, and cNFT minting with optional collection association",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
