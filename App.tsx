@@ -26,7 +26,6 @@ import useIsMobile from './hooks/useIsMobile';
 import SaveModal from './components/SaveModal';
 
 // --- App Context ---
-// This allows us to share state and handlers without prop drilling
 const AppContext = createContext<AppContextType | null>(null);
 export const useAppContext = () => {
   const context = useContext(AppContext);
@@ -71,7 +70,7 @@ const initialState: AppState = {
     maxBufferSize: 8,
     canopyDepth: 0,
   },
-  parentNft: { ...initialNftFormState }, // for legacy mpl-token-metadata
+  parentNft: { ...initialNftFormState }, 
   cnft: {
     useExistingMetadata: true,
     treeAddress: '',
@@ -120,11 +119,8 @@ const appReducer = (state: AppState, action: Action): AppState => {
             tree: { ...state.tree, address: null },
             cnft: { ...state.cnft, treeAddress: '' },
         };
-    // --- Legacy Parent NFT Reducers ---
     case 'SET_PARENT_NFT_FORM': {
       const { field, value } = action.payload;
-
-      // Special handling for the 'isCollection' checkbox
       if (field === 'isCollection') {
         const isNowCollection = value as boolean;
         return {
@@ -132,14 +128,10 @@ const appReducer = (state: AppState, action: Action): AppState => {
           parentNft: {
             ...state.parentNft,
             isCollection: isNowCollection,
-            // When an NFT is marked as a collection, clear its attributes.
-            // When it's marked as a standard NFT, add a default attribute.
             attributes: isNowCollection ? [] : [{ trait_type: 'type', value: '' }],
           },
         };
       }
-      
-      // Default behavior for all other form fields
       return { ...state, parentNft: { ...state.parentNft, [field]: value } };
     }
     case 'SET_ALL_PARENT_NFT_FORM_FIELDS':
@@ -177,8 +169,6 @@ const appReducer = (state: AppState, action: Action): AppState => {
       };
     case 'MINT_PARENT_FAILURE':
       return { ...state, parentNft: { ...state.parentNft, loading: false } };
-
-    // --- cNFT Reducers ---
     case 'SET_CNFT_FORM':
       if (action.payload.field === 'mintToCollection' && action.payload.value === false) {
           return { ...state, cnft: { ...state.cnft, mintToCollection: false, collectionAddress: '' } };
@@ -200,13 +190,12 @@ const appReducer = (state: AppState, action: Action): AppState => {
         const newTreeAddress = treeAddress ? new PublicKey(treeAddress) : null;
         return {
             ...state,
-            rpc: { ...state.rpc, url: rpcUrl, verified: false }, // Force re-verification
+            rpc: { ...state.rpc, url: rpcUrl, verified: false }, 
             tree: { ...state.tree, address: newTreeAddress },
             cnft: { ...state.cnft, treeAddress: treeAddress || '' },
             mintHistory,
         };
     case 'RESET_APP_STATE':
-        // Reset to initial state, but preserve the RPC URL for user convenience.
         return {
             ...initialState,
             rpc: {
@@ -246,7 +235,6 @@ const App: React.FC = () => {
   const wallet = useWallet();
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   
-  // Create a single, unified UMI instance with all necessary plugins.
   const umi = useMemo(() => {
     if (!state.rpc.verified || !wallet.publicKey) return null;
     return createUmi(state.rpc.url)
@@ -255,8 +243,6 @@ const App: React.FC = () => {
         .use(mplTokenMetadata());
   }, [state.rpc.url, state.rpc.verified, wallet.publicKey, wallet.connected]);
 
-
-  // Initialize creators list when wallet connects
   useEffect(() => {
     if (umi && umi.identity.publicKey) {
         const creatorPayload = [{ address: umi.identity.publicKey.toString(), share: 100 }];
@@ -299,7 +285,7 @@ const App: React.FC = () => {
       );
       await connection.confirmTransaction(signature, 'confirmed');
        addNotification('success', 'Airdrop successful!', <ExplorerLink signature={signature} cluster="devnet" />);
-       const cooldownMs = 30000; // 30-second cooldown
+       const cooldownMs = 30000; 
        dispatch({ type: 'SET_AIRDROP_COOLDOWN_END', payload: Date.now() + cooldownMs });
     } catch (e: any) {
       if (typeof e.message === 'string' && (e.message.includes('429') || e.message.toLowerCase().includes('too many requests'))) {
@@ -330,7 +316,6 @@ const App: React.FC = () => {
       });
 
       const { signature } = await builder.sendAndConfirm(umi, { confirm: { commitment: 'finalized' } });
-      
       const treeAddress = merkleTree.publicKey;
 
       dispatch({ type: 'CREATE_TREE_SUCCESS', payload: new PublicKey(treeAddress) });
@@ -470,7 +455,6 @@ const App: React.FC = () => {
         });
 
         const { signature } = await tx.sendAndConfirm(umi);
-
         const mintAddress = mint.publicKey;
         dispatch({ type: 'MINT_PARENT_SUCCESS', payload: new PublicKey(mintAddress) });
 
@@ -484,6 +468,7 @@ const App: React.FC = () => {
           cluster: getClusterFromUrl(state.rpc.url),
           address: mintAddress.toString(),
           metadataUrl: parentNft.metadataUrl,
+          collectionAddress: cnft.mintToCollection ? cnft.collectionAddress : undefined,
         };
         dispatch({ type: 'ADD_TO_HISTORY', payload: newHistoryItem });
 
@@ -499,7 +484,6 @@ const App: React.FC = () => {
   
   const handleResetParentNft = useCallback(() => {
     dispatch({ type: 'RESET_PARENT_NFT_FORM' });
-    // Also reset the collection selection in the cNFT card for a clean slate.
     dispatch({ type: 'SET_CNFT_FORM', payload: { field: 'mintToCollection', value: false }});
     dispatch({ type: 'SET_CNFT_FORM', payload: { field: 'collectionAddress', value: '' }});
     addNotification('info', 'NFT Minter form has been reset.');
@@ -527,7 +511,6 @@ const App: React.FC = () => {
       }
 
       const data = await response.json();
-      
       if (!data.image || !data.name || !data.symbol) {
           throw new Error('Metadata is missing required fields (image, name, symbol).');
       }
@@ -579,7 +562,6 @@ const App: React.FC = () => {
         }
         
         const mintMethod = cnft.mintToCollection ? mintToCollectionV1 : mintV1;
-        
         const tx = mintMethod(umi, {
             leafOwner: leafOwner ? publicKey(leafOwner) : umi.identity.publicKey,
             merkleTree: publicKey(cnft.treeAddress),
@@ -637,13 +619,7 @@ const App: React.FC = () => {
         
         const getTimestamp = () => {
             const d = new Date();
-            const YYYY = d.getFullYear();
-            const MM = (d.getMonth() + 1).toString().padStart(2, '0');
-            const DD = d.getDate().toString().padStart(2, '0');
-            const hh = d.getHours().toString().padStart(2, '0');
-            const mm = d.getMinutes().toString().padStart(2, '0');
-            const ss = d.getSeconds().toString().padStart(2, '0');
-            return `${YYYY}${MM}${DD}-${hh}${mm}${ss}`;
+            return `${d.getFullYear()}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getDate().toString().padStart(2, '0')}-${d.getHours().toString().padStart(2, '0')}${d.getMinutes().toString().padStart(2, '0')}${d.getSeconds().toString().padStart(2, '0')}`;
         };
 
         const filename = overwrite ? 'AdvancedMint.json' : `AdvancedMint-${getTimestamp()}.json`;
@@ -672,17 +648,13 @@ const App: React.FC = () => {
     reader.onload = (e) => {
       try {
         const text = e.target?.result;
-        if (typeof text !== 'string') {
-          throw new Error("File content is not a string.");
-        }
+        if (typeof text !== 'string') throw new Error("File content is not a string.");
         const parsedDb = JSON.parse(text);
 
-        // A simple check to see if it's likely our file.
         if (typeof parsedDb !== 'object' || parsedDb === null || (!parsedDb.rpcUrl && !parsedDb.treeAddress && !parsedDb.mintHistory)) {
-             throw new Error("Invalid database file format. Does not contain expected data.");
+             throw new Error("Invalid database file format.");
         }
         
-        // Construct a valid DatabaseFile, providing defaults for missing keys from older versions.
         const db: DatabaseFile = {
             rpcUrl: parsedDb.rpcUrl || initialState.rpc.url,
             treeAddress: parsedDb.treeAddress || null,
@@ -692,7 +664,7 @@ const App: React.FC = () => {
         dispatch({ type: 'LOAD_DATABASE', payload: db });
         addNotification('success', 'Database loaded successfully!', 'RPC endpoint will need to be re-verified.');
       } catch (error) {
-        addNotification('error', 'Failed to load database. File may be corrupt or invalid.', getErrorMessage(error));
+        addNotification('error', 'Failed to load database.', getErrorMessage(error));
       }
     };
     reader.readAsText(file);
@@ -705,12 +677,8 @@ const App: React.FC = () => {
         addNotification('info', 'Merkle Tree address selected for cNFT minting.');
     } else if (item.type === 'Parent NFT' || item.type === 'NFT') {
         if (!item.address) return;
-
         dispatch({ type: 'SET_ALL_PARENT_NFT_FORM_FIELDS', payload: { address: null } });
-
-        if (item.metadataUrl) {
-            handleFetchParentMetadata(item.metadataUrl);
-        }
+        if (item.metadataUrl) handleFetchParentMetadata(item.metadataUrl);
         if (item.isCollection) {
             dispatch({ type: 'SET_CNFT_FORM', payload: { field: 'mintToCollection', value: true } });
             dispatch({ type: 'SET_CNFT_FORM', payload: { field: 'collectionAddress', value: item.address } });
@@ -737,25 +705,20 @@ const App: React.FC = () => {
   }, [addNotification, handleFetchParentMetadata, handleFetchCnftMetadata]);
 
   const handleDisconnectAndReset = useCallback(async () => {
-    // Always attempt to disconnect to fully reset the wallet adapter's state.
-    // This is important for handling cases where the wallet connection is stuck,
-    // or when the UI needs a hard reset even if the wallet isn't formally 'connected'.
     try {
-      // Calling `disconnect` is safe even if the wallet is not connected.
       await wallet.disconnect();
     } catch (error) {
       console.error('Failed to disconnect wallet:', getErrorMessage(error));
-      // Still proceed to reset app state, as the user expects a reset.
     }
-
-    // Dispatch an action to reset the application's state to its initial configuration.
     dispatch({ type: 'RESET_APP_STATE' });
     addNotification('info', 'Session Reset', 'The application state and wallet connection have been cleared.');
   }, [wallet, addNotification]);
 
-  // Conditionally render a blocker for mobile devices.
-  // Moved here after all hook calls to respect the Rules of Hooks.
-  if (isMobile) {
+  // --- MODIFIED MOBILE CHECK ---
+  // Only trigger the hard desktop roadblock if they are on mobile AND have NOT accepted the safety gate liability yet.
+  const hasAcceptedLiability = sessionStorage.getItem('sand_mobile_liability_accepted') === 'true';
+  
+  if (isMobile && !hasAcceptedLiability) {
     return (
       <div className="bg-gray-900 text-white min-h-screen font-sans flex flex-col items-center justify-center p-4 text-center">
         <DesktopComputerIcon className="w-24 h-24 text-indigo-400 mx-auto mb-6" />
