@@ -7,30 +7,35 @@ import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adap
 import { clusterApiUrl } from '@solana/web3.js';
 import App from './App';
 
-// The stylesheet is already included in index.html via a <link> tag.
-// require('@solana/wallet-adapter-react-ui/styles.css');
-
 // --- MOBILE DEVICE DETECTOR & LIABILITY DISCLAIMER GATE ---
 const MobileSafetyGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isMobile, setIsMobile] = useState(false);
     const [bypassGate, setBypassGate] = useState(false);
 
     useEffect(() => {
+        // Check if they already clicked yes in this session
+        if (sessionStorage.getItem('sand_mobile_liability_accepted') === 'true') {
+            setBypassGate(true);
+            // Force global flags in case App.tsx checks window properties
+            (window as any).isMobileBypassed = true;
+            return;
+        }
+
         // Detect common mobile layouts / mobile user agents
         const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
         if (/android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent)) {
             setIsMobile(true);
         }
-
-        // Keep them through the dashboard session if they already clicked yes
-        if (sessionStorage.getItem('sand_mobile_liability_accepted') === 'true') {
-            setBypassGate(true);
-        }
     }, []);
 
     const handleProceed = () => {
         sessionStorage.setItem('sand_mobile_liability_accepted', 'true');
+        (window as any).isMobileBypassed = true;
         setBypassGate(true);
+        
+        // Force a quick window resize event in case App.tsx uses a listener 
+        // to calculate desktop vs mobile layouts
+        window.dispatchEvent(new Event('resize'));
     };
 
     if (isMobile && !bypassGate) {
@@ -88,10 +93,7 @@ const MobileSafetyGate: React.FC<{ children: React.ReactNode }> = ({ children })
 };
 
 const AppWrapper: React.FC = () => {
-    // Can be set to 'devnet', 'testnet', or 'mainnet-beta'
     const network = WalletAdapterNetwork.Devnet;
-
-    // You can also provide a custom RPC endpoint
     const endpoint = React.useMemo(() => clusterApiUrl(network), [network]);
 
     const wallets = React.useMemo(
@@ -106,7 +108,6 @@ const AppWrapper: React.FC = () => {
         <ConnectionProvider endpoint={endpoint}>
             <WalletProvider wallets={wallets} autoConnect>
                 <WalletModalProvider>
-                    {/* Wrapped the main App inside the Mobile Safety Interceptor */}
                     <MobileSafetyGate>
                         <App />
                     </MobileSafetyGate>
